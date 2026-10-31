@@ -1,0 +1,29 @@
+name: Build Prism IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack project
+        run: unzip -q Prism-iOS-project.zip
+
+      - name: Build and test
+        run: bash prism-ios/build-ipa.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Prism-IPA
+          path: prism-ios/build/Prism-unsigned.ipa
+          if-no-files-found: error
