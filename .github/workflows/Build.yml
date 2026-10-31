@@ -1,39 +1,35 @@
 name: Build Prism IPA
+
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 25
+
     steps:
       - uses: actions/checkout@v4
-      - name: Validate and unpack source ZIP
-        shell: bash
+
+      - name: Validate and unpack project
         run: |
-          python3 - <<'PY'
-          from pathlib import Path, PurePosixPath
-          import zipfile
-          path=Path('Prism-iOS-project.zip')
-          assert zipfile.is_zipfile(path), 'Source ZIP is incomplete or is not a ZIP. Download it again.'
-          with zipfile.ZipFile(path) as z:
-              names=z.namelist()
-              assert len(names)==len(set(names)), 'Duplicate ZIP entries'
-              assert all(not PurePosixPath(n).is_absolute() and '..' not in PurePosixPath(n).parts and '\\' not in n for n in names), 'Unsafe ZIP paths'
-              assert z.testzip() is None, 'Source ZIP CRC failed'
-              for name in names:
-                  if name.startswith('prism-ios/'):
-                      z.extract(name,'.')
-          PY
+          unzip -tq Prism-iOS-project.zip
+          unzip -oq Prism-iOS-project.zip 'prism-ios/*'
           python3 prism-ios/scripts/verify-archive.py source Prism-iOS-project.zip
+
       - name: Build and test
         run: CI=true bash prism-ios/build-ipa.sh
-      - name: Validate release IPA
-        run: python3 prism-ios/scripts/verify-archive.py ipa prism-ios/build/Prism-unsigned.ipa
-      - name: Upload install package
+
+      - name: Validate IPA
+        run: |
+          python3 prism-ios/scripts/verify-archive.py ipa prism-ios/build/Prism-unsigned.ipa
+
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Prism-2.5.0-build-10-IPA
@@ -41,7 +37,8 @@ jobs:
             prism-ios/build/Prism-unsigned.ipa
             prism-ios/build/RELEASE.txt
           if-no-files-found: error
-      - name: Upload diagnostics separately
+
+      - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
